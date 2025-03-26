@@ -2,6 +2,8 @@ package main
 
 import (
 	"go-zero/handlers"
+	"go-zero/server/api"
+	"go-zero/server/socket-connection"
 	"go-zero/util"
 	"log"
 )
@@ -15,15 +17,15 @@ func main() {
 	}
 	//
 	// Create a PLCManager and start pollers for each PLC.
-	plcManager := handlers.NewPLCManager()
-	plcManager.Update(plcs)
+	// Update the global PLCManager instead of creating a new instance.
+	handlers.GlobalPLCManager.Update(plcs)
 
-	handlers.LogPLC(plcs)
+	//handlers.LogPLC(plcs)
 
 	// Start the socket server (defined in socket_server.go).
-	//go socket_connection.StartSocketServer()
-	//
-	//go api.RunServer()
+	go socket_connection.StartSocketServer()
+
+	go api.RunServer()
 
 	// Keep the application running.
 	select {}

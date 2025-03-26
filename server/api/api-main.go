@@ -58,12 +58,23 @@ func getAlbumByID(c *gin.Context) {
 }
 
 func getPLCSStateHandler(c *gin.Context) {
-	state, err := handlers.GetPLCState("coil", "PLC_TEST")
+	state, err := handlers.GetDetailedPLCState("PLC_TEST")
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	// Since state is already a JSON-formatted string, send it as raw JSON data.
+	c.Data(http.StatusOK, "application/json", []byte(state))
+}
 
-	c.IndentedJSON(http.StatusOK, state)
+func getPLCTowersStateHandler(c *gin.Context) {
+	state, err := handlers.GetTowerStateGroupedByOwner()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	// Since state is already a JSON-formatted string, send it as raw JSON data.
+	c.Data(http.StatusOK, "application/json", []byte(state))
 }
 
 func RunServer() {
@@ -72,6 +83,7 @@ func RunServer() {
 	router.GET("/albums/:id", getAlbumByID)
 	router.POST("/albums", postAlbums)
 	router.GET("/plcState", getPLCSStateHandler)
+	router.GET("/plcTowersState", getPLCTowersStateHandler)
 
 	router.Run("localhost:8080")
 }
