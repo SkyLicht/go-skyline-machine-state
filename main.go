@@ -1,25 +1,29 @@
 package main
 
 import (
+	"go-zero/handlers"
+	"go-zero/util"
 	"log"
 )
 
 func main() {
-	ensureLogDir() // Ensure the folder exists before writing any log files.
+	handlers.EnsureLogDir() // Ensure the folder exists before writing any log files.
 	// Load the initial PLC configuration from file.
-	plcs, err := loadJsonFile[PLC]("config.json")
+	plcs, err := util.LoadJsonFile[handlers.PLC]("config.json")
 	if err != nil {
 		log.Fatalf("Failed to load PLC configuration: %v", err)
 	}
-
+	//
 	// Create a PLCManager and start pollers for each PLC.
-	plcManager := NewPLCManager()
+	plcManager := handlers.NewPLCManager()
 	plcManager.Update(plcs)
 
-	logPLC(plcs)
+	handlers.LogPLC(plcs)
 
 	// Start the socket server (defined in socket_server.go).
-	go startSocketServer()
+	//go socket_connection.StartSocketServer()
+	//
+	//go api.RunServer()
 
 	// Keep the application running.
 	select {}

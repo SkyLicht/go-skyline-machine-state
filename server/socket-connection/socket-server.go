@@ -1,7 +1,8 @@
-package main
+package socket_connection
 
 import (
 	"encoding/json"
+	"go-zero/handlers"
 	"log"
 	"net"
 	"sync"
@@ -15,7 +16,7 @@ var (
 
 // broadcastTowerEvents listens on the global towerEventChan and sends every event to all connected clients.
 func broadcastTowerEvents() {
-	for event := range towerEventChan {
+	for event := range handlers.TowerEventChan {
 		data, err := json.Marshal(event)
 		if err != nil {
 			log.Printf("Error marshaling tower event: %v", err)
@@ -42,7 +43,7 @@ func broadcastTowerEvents() {
 
 // broadcastEvents listens on the global eventChan and sends every event to all connected clients.
 func broadcastEvents() {
-	for event := range eventChan {
+	for event := range handlers.EventChan {
 		data, err := json.Marshal(event)
 		if err != nil {
 			log.Printf("Error marshaling event: %v", err)
@@ -67,8 +68,8 @@ func broadcastEvents() {
 	}
 }
 
-// startSocketServer listens on TCP port 9090 and accepts incoming client connections.
-func startSocketServer() {
+// StartSocketServer listens on TCP port 9090 and accepts incoming client connections.
+func StartSocketServer() {
 	ln, err := net.Listen("tcp", ":9090")
 	if err != nil {
 		log.Printf("Error starting socket server: %v", err)

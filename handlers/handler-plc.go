@@ -1,7 +1,9 @@
-package main
+package handlers
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/goburrow/modbus"
 	"log"
@@ -16,9 +18,10 @@ import (
 // Logging: Per-PLC Logger with Rotation
 // -----------------------------
 
-// ensureLogDir makes sure the folder "log/plc" exists.
+// EnsureLogDir makes sure the folder "log/plc" exists.
 // If the folder does not exist, it creates it.
-func ensureLogDir() {
+func EnsureLogDir() {
+	log.Printf("EnsureLogDir")
 	dir := filepath.Join("log", "plc")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		log.Fatalf("Failed to create log directory: %v", err)
@@ -99,6 +102,16 @@ func (pl *PLCLogger) rotate() {
 // -----------------------------
 // Data Types and Global State
 // -----------------------------
+// Global states maps.
+var (
+	plcCoilState     = make(map[string]map[int]bool)
+	plcInputState    = make(map[string]map[int]bool)
+	plcRegisterState = make(map[string]map[int]uint16)
+	coilMetrics      = make(map[string]map[int]*CoilMetrics)
+	stateMutex       sync.RWMutex
+	EventChan        = make(chan Event, 1000)
+	TowerEventChan   = make(chan TowerEvent, 200)
+)
 
 // Event represents a change in a coil or holding register value.
 type Event struct {
@@ -269,7 +282,7 @@ func pollPLC(ctx context.Context, plc PLC) {
 		}
 	}()
 
-	// Initialize state maps.
+	// Initialize states maps.
 	stateMutex.Lock()
 	plcCoilState[plc.ID] = make(map[int]bool)
 	plcInputState[plc.ID] = make(map[int]bool)
@@ -377,7 +390,7 @@ func pollPLC(ctx context.Context, plc PLC) {
 								Buzzer: towerStates["buzzer"],
 							}
 
-							towerEventChan <- towerEvent
+							TowerEventChan <- towerEvent
 
 							log.Printf("Tower States: Yellow: %v, Green: %v, Red: %v, Buzzer: %v",
 								towerStates["yellow"], towerStates["green"], towerStates["red"], towerStates["buzzer"])
@@ -395,7 +408,7 @@ func pollPLC(ctx context.Context, plc PLC) {
 						NewValue:  newState,
 						Timestamp: now,
 					}
-					eventChan <- event
+					EventChan <- event
 					plcLogger.Printf("Coil %s changed from %v to %v (%s) - Delta: %v, Activation Count: %d, Total Active Time: %v",
 						coil.Name, oldState, newState, coil.Description, delta,
 						coilMetrics[plc.ID][coil.Address].ActivationCount,
@@ -428,7 +441,7 @@ func pollPLC(ctx context.Context, plc PLC) {
 						Timestamp: time.Now(),
 					}
 
-					eventChan <- event
+					EventChan <- event
 					plcLogger.Printf("Input %s changed from %v to %v", reg.Name, oldValue, newValue)
 				}
 			}
@@ -456,7 +469,7 @@ func pollPLC(ctx context.Context, plc PLC) {
 						NewValue:  newValue,
 						Timestamp: time.Now(),
 					}
-					eventChan <- event
+					EventChan <- event
 					plcLogger.Printf("Holding register %s changed from %v to %v (%s)", reg.Name, oldValue, newValue, reg.Description)
 				}
 			}
@@ -502,7 +515,7 @@ func (m *PLCManager) Update(plcs []PLC) {
 	}
 }
 
-func logPLC(plcs []PLC) {
+func LogPLC(plcs []PLC) {
 	fmt.Println("PLC Configuration Log:")
 	for _, plc := range plcs {
 		fmt.Printf("id: \"%s\"\n", plc.ID)
@@ -513,4 +526,39 @@ func logPLC(plcs []PLC) {
 		fmt.Printf("holdingRegisters: %v\n", plc.HoldingRegisters)
 		fmt.Println("----------------------")
 	}
+}
+
+func GetPLCState(stateType string, plcID string) (string, error) {
+
+	var result any
+
+	switch stateType {
+
+	case "coil":
+		if data, ok := plcCoilState[plcID]; ok {
+			result = map[string]any{"type": "coil", "plc": plcID, "values": data}
+		} else {
+			return "", errors.New("coil state not found")
+		}
+	case "holding":
+		if data, ok := plcCoilState[plcID]; ok {
+			result = map[string]any{"type": "holding", "plc": plcID, "values": data}
+		} else {
+			return "", errors.New("coil state not found")
+		}
+	case "input":
+		if data, ok := plcInputState[plcID]; ok {
+			result = map[string]any{"type": "input", "plc": plcID, "values": data}
+		} else {
+			return "", errors.New("input state not found")
+		}
+	}
+
+	jsonBytes, err := json.Marshal(result)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jsonBytes), nil
+
 }

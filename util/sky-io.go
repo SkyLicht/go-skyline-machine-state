@@ -1,4 +1,4 @@
-package main
+package util
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 )
 
 // loadFile reads a JSON file and decodes its content into a slice of type T.
-func loadJsonFile[T any](filename string) ([]T, error) {
+func LoadJsonFile[T any](filename string) ([]T, error) {
 	// Open the file
 	file, err := os.Open(filename)
 	if err != nil {
